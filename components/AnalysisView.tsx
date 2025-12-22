@@ -4,7 +4,7 @@ import { generateSkillFromVideo } from '../services/geminiService';
 import { blobToBase64 } from '../utils/videoUtils';
 
 interface AnalysisViewProps {
-  videoBlob: Blob | null;
+  videoBlob: Blob | null; // Note: Despite name, can be any supported media blob
   setAppState: (state: AppState) => void;
   onAnalysisComplete: (result: GeneratedSkill) => void;
 }
@@ -12,13 +12,16 @@ interface AnalysisViewProps {
 const AnalysisView: React.FC<AnalysisViewProps> = ({ videoBlob, setAppState, onAnalysisComplete }) => {
   const [notes, setNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  
+  const isVideo = videoBlob?.type.startsWith('video/');
+  const isImage = videoBlob?.type.startsWith('image/');
+  const isPdf = videoBlob?.type === 'application/pdf';
 
   useEffect(() => {
     if (videoBlob) {
       const url = URL.createObjectURL(videoBlob);
-      setVideoUrl(url);
+      setMediaUrl(url);
       return () => URL.revokeObjectURL(url);
     }
   }, [videoBlob]);
@@ -46,15 +49,35 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ videoBlob, setAppState, onA
     <div className="max-w-5xl mx-auto w-full animate-in fade-in duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* Left: Video Preview */}
+        {/* Left: Media Preview */}
         <div className="space-y-4">
-          <div className="glass-panel p-2 rounded-xl">
-            <video 
-              ref={videoRef}
-              src={videoUrl || ""} 
-              controls 
-              className="w-full rounded-lg aspect-video bg-black/50"
-            />
+          <div className="glass-panel p-2 rounded-xl flex items-center justify-center min-h-[300px] bg-slate-900/50">
+            {isVideo && (
+              <video 
+                src={mediaUrl || ""} 
+                controls 
+                className="w-full rounded-lg max-h-[500px] object-contain"
+              />
+            )}
+            {isImage && (
+               <img 
+                 src={mediaUrl || ""} 
+                 className="w-full rounded-lg max-h-[500px] object-contain"
+                 alt="Preview"
+               />
+            )}
+            {isPdf && (
+              <div className="flex flex-col items-center gap-4 text-slate-300">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-20 h-20 text-red-400">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+                <span className="font-semibold text-lg">PDF Document Uploaded</span>
+                <span className="text-sm text-slate-500">{(videoBlob.size / 1024).toFixed(1)} KB</span>
+              </div>
+            )}
+            {!isVideo && !isImage && !isPdf && (
+              <div className="text-slate-400">Preview not available for this file type</div>
+            )}
           </div>
           <div className="flex justify-between items-center text-sm text-slate-400 font-mono">
             <span>{(videoBlob.size / (1024 * 1024)).toFixed(2)} MB</span>
@@ -67,7 +90,7 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ videoBlob, setAppState, onA
           <div className="space-y-2">
             <h3 className="text-2xl font-bold text-white">Review & Analyze</h3>
             <p className="text-slate-400">
-              Add any specific notes to help the AI understand complex steps or hidden logic in your recording.
+              Add any specific notes to help the AI understand complex steps, specific logic, or context about the uploaded file.
             </p>
           </div>
 
@@ -75,7 +98,7 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ videoBlob, setAppState, onA
             <label className="text-sm font-semibold text-slate-300">Context Notes (Optional)</label>
             <textarea
               className="w-full bg-slate-900/50 border border-slate-700 rounded-lg p-4 text-slate-200 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all resize-none h-32"
-              placeholder="e.g., 'I am filtering the sales spreadsheet for Q3 and exporting to PDF...'"
+              placeholder="e.g., 'This PDF explains the new vacation policy...', or 'This screenshot shows the error message...'"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />

@@ -1,35 +1,73 @@
-import React, { useState } from 'react';
-import { AppState, GeneratedSkill, SkillFile } from '../types';
+import React, { useState, useEffect } from 'react';
+import { AppState, GeneratedSkill, SkillFile, SkillPackage } from '../types';
 import { createSkillZip, downloadBlob } from '../utils/zipUtils';
 
 interface ResultViewProps {
   skillData: GeneratedSkill;
   setAppState: (state: AppState) => void;
+  onUpdateSkill?: (updatedSkill: GeneratedSkill) => void;
 }
 
-const ResultView: React.FC<ResultViewProps> = ({ skillData, setAppState }) => {
+const ResultView: React.FC<ResultViewProps> = ({ skillData, setAppState, onUpdateSkill }) => {
   const { skillPackage } = skillData;
   const [activeFile, setActiveFile] = useState<string>('SKILL.md');
+  const [editedPackage, setEditedPackage] = useState<SkillPackage>(skillPackage);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Construct the full SKILL.md content for display
-  const fullSkillMd = `---
-name: ${skillPackage.frontmatter.name}
-description: ${skillPackage.frontmatter.description}
+  // Sync state if prop changes
+  useEffect(() => {
+    setEditedPackage(skillData.skillPackage);
+    setHasUnsavedChanges(false);
+  }, [skillData]);
+
+  // Helper to get current content
+  const getCurrentContent = () => {
+    if (activeFile === 'SKILL.md') {
+      return `---
+name: ${editedPackage.frontmatter.name}
+description: ${editedPackage.frontmatter.description}
 ---
 
-${skillPackage.body}`;
+${editedPackage.body}`;
+    }
+    return editedPackage.resources.find(f => f.filename === activeFile)?.content || "";
+  };
 
-  // flatten files for easy access
-  const allFiles = [
-    { filename: 'SKILL.md', content: fullSkillMd, type: 'doc', language: 'markdown' },
-    ...skillPackage.resources
-  ];
+  const handleContentChange = (newContent: string) => {
+    setHasUnsavedChanges(true);
+    const newPackage = { ...editedPackage };
 
-  const currentContent = allFiles.find(f => f.filename === activeFile)?.content || "";
+    if (activeFile === 'SKILL.md') {
+      // For SKILL.md, let's allow editing the Body ONLY in the text area to prevent frontmatter corruption.
+      newPackage.body = newContent;
+    } else {
+      const resIndex = newPackage.resources.findIndex(f => f.filename === activeFile);
+      if (resIndex !== -1) {
+        newPackage.resources[resIndex] = {
+          ...newPackage.resources[resIndex],
+          content: newContent
+        };
+      }
+    }
+    setEditedPackage(newPackage);
+  };
+  
+  const handleSave = () => {
+    if (onUpdateSkill) {
+      onUpdateSkill({
+        ...skillData,
+        skillPackage: editedPackage
+      });
+      setHasUnsavedChanges(false);
+    }
+  };
 
   const handleDownload = async () => {
-    const blob = await createSkillZip(skillPackage);
-    downloadBlob(blob, `${skillPackage.slug}.skill`);
+    // Save first if needed
+    if (hasUnsavedChanges) handleSave();
+    const blob = await createSkillZip(editedPackage);
+    // Changed extension from .skill to .zip
+    downloadBlob(blob, `${editedPackage.slug}.zip`);
   };
 
   return (
@@ -38,13 +76,17 @@ ${skillPackage.body}`;
       <div className="flex justify-between items-end mb-6 flex-shrink-0">
         <div>
           <h2 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-            {skillPackage.frontmatter.name}
+             {/* Allow name editing? For now just display */}
+            {editedPackage.frontmatter.name}
             <span className="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">
-              {skillPackage.slug}
+              {editedPackage.slug}
             </span>
+            {hasUnsavedChanges && (
+                <span className="text-xs bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2 py-0.5 rounded-full">Unsaved Changes</span>
+            )}
           </h2>
           <p className="text-slate-400 text-sm max-w-2xl line-clamp-2">
-            {skillPackage.frontmatter.description}
+            {editedPackage.frontmatter.description}
           </p>
         </div>
         <div className="flex gap-3">
@@ -52,8 +94,18 @@ ${skillPackage.body}`;
             onClick={() => setAppState(AppState.IDLE)}
             className="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
           >
-            Create New
+            Back to Home
           </button>
+          
+          {hasUnsavedChanges && (
+            <button 
+                onClick={handleSave}
+                className="bg-slate-700 hover:bg-slate-600 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all font-medium"
+            >
+                Save Changes
+            </button>
+          )}
+
           <button 
             onClick={handleDownload}
             className="bg-primary-600 hover:bg-primary-500 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all shadow-lg shadow-primary-500/20 font-medium"
@@ -61,7 +113,7 @@ ${skillPackage.body}`;
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
               <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
             </svg>
-            Download Package (.skill)
+            Download Package (.zip)
           </button>
         </div>
       </div>
@@ -90,7 +142,7 @@ ${skillPackage.body}`;
 
             {/* Helper Functions to render file lists */}
             {['script', 'reference', 'asset'].map(type => {
-              const files = skillPackage.resources.filter(r => r.type === type);
+              const files = editedPackage.resources.filter(r => r.type === type);
               if (files.length === 0) return null;
               
               const folderName = type === 'script' ? 'scripts' : type === 'reference' ? 'references' : 'assets';
@@ -122,16 +174,34 @@ ${skillPackage.body}`;
         {/* Editor Area */}
         <div className="flex-grow glass-panel rounded-xl overflow-hidden flex flex-col min-w-0">
           <div className="bg-slate-900 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
-            <span className="text-sm font-mono text-slate-300">{activeFile}</span>
+            <div className="flex items-center gap-2">
+                 <span className="text-sm font-mono text-slate-300">{activeFile}</span>
+                 {activeFile === 'SKILL.md' && <span className="text-[10px] text-slate-500 uppercase tracking-wide bg-slate-800 px-1.5 py-0.5 rounded">Body Only</span>}
+            </div>
+            
             <span className="text-xs text-slate-500">
-              {activeFile === 'SKILL.md' ? 'Markdown' : activeFile.split('.').pop()?.toUpperCase() || 'TEXT'}
+              {activeFile === 'SKILL.md' ? 'MARKDOWN' : activeFile.split('.').pop()?.toUpperCase() || 'TEXT'}
             </span>
           </div>
           
-          <div className="flex-grow overflow-auto bg-[#0d1117] p-6">
-            <pre className="font-mono text-sm leading-relaxed text-slate-300 whitespace-pre-wrap max-w-none">
-              {currentContent}
-            </pre>
+          <div className="flex-grow bg-[#0d1117] flex flex-col">
+            {activeFile === 'SKILL.md' ? (
+                // For SKILL.md, we allow editing just the body to be safe
+                <textarea 
+                    className="flex-grow bg-transparent p-6 text-sm font-mono leading-relaxed text-slate-300 resize-none focus:outline-none"
+                    value={editedPackage.body}
+                    onChange={(e) => handleContentChange(e.target.value)}
+                    spellCheck={false}
+                />
+            ) : (
+                // For other files, full edit
+                <textarea 
+                    className="flex-grow bg-transparent p-6 text-sm font-mono leading-relaxed text-slate-300 resize-none focus:outline-none"
+                    value={getCurrentContent()}
+                    onChange={(e) => handleContentChange(e.target.value)}
+                    spellCheck={false}
+                />
+            )}
           </div>
         </div>
 

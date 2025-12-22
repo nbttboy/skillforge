@@ -25,6 +25,8 @@ export interface SkillPackage {
 }
 
 export interface GeneratedSkill {
+  id: string;
+  createdAt: number;
   skillPackage: SkillPackage;
   rawResponse?: string;
 }

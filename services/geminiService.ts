@@ -5,22 +5,22 @@ import { GeneratedSkill, SkillPackage } from "../types";
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generateSkillFromVideo = async (
-  videoBase64: string,
+  mediaBase64: string,
   mimeType: string,
   userNotes: string
 ): Promise<GeneratedSkill> => {
   try {
     const modelId = "gemini-2.5-flash-preview-09-2025"; 
 
-    const videoPart = {
+    const mediaPart = {
       inlineData: {
-        data: videoBase64,
+        data: mediaBase64,
         mimeType: mimeType,
       },
     };
 
     const systemPrompt = `
-      You are an expert Skill Creator for Claude. You analyze screen recordings and create high-quality "Skills" that extend an AI agent's capabilities.
+      You are an expert Skill Creator for Claude. You analyze media inputs (Screen Recordings, PDF Documents, or Screenshots) and create high-quality "Skills" that extend an AI agent's capabilities.
 
       ### CORE PRINCIPLES
       1. **Concise is Key**: The context window is precious. Do not include verbose explanations.
@@ -31,7 +31,7 @@ export const generateSkillFromVideo = async (
       4. **Progressive Disclosure**: Move large tables, schemas, or complex boilerplate code into \`references/\` or \`scripts/\` files.
 
       ### TASK
-      Analyze the video. Identify the workflow. Create a JSON object representing the file structure for a new Skill.
+      Analyze the attached media (video workflow, PDF manual, or screenshot). Identify the workflow, logic, or knowledge provided. Create a JSON object representing the file structure for a new Skill.
 
       User Notes: "${userNotes}"
     `;
@@ -40,7 +40,7 @@ export const generateSkillFromVideo = async (
       model: modelId,
       contents: {
         parts: [
-          videoPart,
+          mediaPart,
           { text: systemPrompt }
         ]
       },
@@ -91,6 +91,8 @@ export const generateSkillFromVideo = async (
     const skillPackage = JSON.parse(text) as SkillPackage;
 
     return {
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
       skillPackage,
       rawResponse: text
     };

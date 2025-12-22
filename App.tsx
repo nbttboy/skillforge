@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppState, GeneratedSkill } from './types';
 import Recorder from './components/Recorder';
 import AnalysisView from './components/AnalysisView';
@@ -9,6 +9,24 @@ function App() {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [generatedSkill, setGeneratedSkill] = useState<GeneratedSkill | null>(null);
+  const [history, setHistory] = useState<GeneratedSkill[]>([]);
+
+  // Load history from local storage on mount
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('skillforge_history');
+    if (savedHistory) {
+      try {
+        setHistory(JSON.parse(savedHistory));
+      } catch (e) {
+        console.error("Failed to parse history", e);
+      }
+    }
+  }, []);
+
+  // Save history whenever it changes
+  useEffect(() => {
+    localStorage.setItem('skillforge_history', JSON.stringify(history));
+  }, [history]);
 
   const handleRecordingComplete = (blob: Blob) => {
     setRecordedBlob(blob);
@@ -17,7 +35,23 @@ function App() {
 
   const handleAnalysisComplete = (skill: GeneratedSkill) => {
     setGeneratedSkill(skill);
+    // Add to history
+    setHistory(prev => [skill, ...prev]);
     setAppState(AppState.SUCCESS);
+  };
+
+  const handleHistorySelect = (skill: GeneratedSkill) => {
+    setGeneratedSkill(skill);
+    setAppState(AppState.SUCCESS);
+  };
+
+  const handleHistoryDelete = (id: string) => {
+    setHistory(prev => prev.filter(item => item.id !== id));
+  };
+
+  const handleUpdateSkill = (updatedSkill: GeneratedSkill) => {
+    setGeneratedSkill(updatedSkill);
+    setHistory(prev => prev.map(item => item.id === updatedSkill.id ? updatedSkill : item));
   };
 
   return (
@@ -74,7 +108,10 @@ function App() {
             <Recorder 
               appState={appState} 
               setAppState={setAppState} 
-              onRecordingComplete={handleRecordingComplete} 
+              onRecordingComplete={handleRecordingComplete}
+              history={history}
+              onSelectHistory={handleHistorySelect}
+              onDeleteHistory={handleHistoryDelete}
             />
           )}
 
@@ -94,6 +131,7 @@ function App() {
             <ResultView 
               skillData={generatedSkill}
               setAppState={setAppState}
+              onUpdateSkill={handleUpdateSkill}
             />
           )}
 
