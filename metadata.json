@@ -1,0 +1,8 @@
+{
+  "name": "SkillForge - AI Process Observer",
+  "description": "Records your screen activity and uses Gemini AI to automatically generate reusable skill definitions and automation scripts from your actions.",
+  "requestFramePermissions": [
+    "microphone",
+    "display-capture"
+  ]
+}
