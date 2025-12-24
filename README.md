@@ -3,6 +3,7 @@
 SkillForge 是一个基于 Web 的智能工具，旨在利用 Google Gemini 的多模态能力，将用户的屏幕操作录屏、PDF 文档或长截图自动转化为符合 [Claude Skill Creator](https://support.claude.com/en/articles/12512198-how-to-create-custom-skills) 标准的技能包（Skill Package）。
 
 它能够识别工作流逻辑，自动生成 `SKILL.md` 指南，并提取可复用的代码脚本（Scripts）、参考文档（References）和资源文件（Assets），最终打包为 `.zip` 文件供分发使用。
+工具出发点是解决我日常法律工作skill的编写，视频展示详见公众号刑科税律：https://mp.weixin.qq.com/s/jI6E0wz6b3LebKP_P1g4NQ
 
 ## ✨ 主要功能 (Features)
 
